@@ -7,7 +7,7 @@ import torch.nn as nn
 
 class ConvolutionBlock(nn.Module):
     """
-    ConvolutionBlock layer with structure Convolution -> InstanceNorm -> Activation
+    ConvolutionBlock layer with structure Convolution -> Norm -> Activation
     """
 
     def __init__(
@@ -17,9 +17,11 @@ class ConvolutionBlock(nn.Module):
         kernel_size: int | tuple[int, int] = 3,
         stride: int | tuple[int, int] = 1,
         padding: int | tuple[int, int] = 0,
-        output_padding: int | tuple[int, int] = 0,
+        norm: typing.Literal["instance", "none"] = "instance",
         activation: typing.Literal["relu", "tanh", "none"] = "relu",
         convolution_type: typing.Literal["base", "transpose"] = "base",
+        output_padding: int | tuple[int, int] = 0,
+        relu_slope: float = 0,
     ) -> None:
         """
         :param filters_in: Number of convolution input filters
@@ -27,9 +29,11 @@ class ConvolutionBlock(nn.Module):
         :param kernel_size: Size of convolution kernel
         :param stride: Convolution stride
         :param padding: Convolutions padding size
-        :param output_padding Convolution output padding (used only when `convolution_type` = "transpose")
+        :param norm: Which type of norm layer use
         :param activation: Activation type, used after norm layer
         :param convolution_type: Which type of convolution use (nn.Conv2d or nn.ConvTranspose2d)
+        :param output_padding Convolution output padding (used only when `convolution_type` = "transpose")
+        :param relu_slope: Used only for ReLU activation. If larger than 0, then LeakyReLU will be used for activation
         """
         super().__init__()
         match convolution_type:
@@ -42,6 +46,26 @@ class ConvolutionBlock(nn.Module):
             case _:
                 raise ValueError(f"Invalid {convolution_type = }")
 
+        match norm:
+            case "instance":
+                norm_class = nn.InstanceNorm2d(filters_out)
+            case "none":
+                norm_class = None
+            case _:
+                raise ValueError(f"Invalid {norm = }")
+
+        match activation:
+            case "relu":
+                activation_class = nn.ReLU()
+                if relu_slope > 0:
+                    activation_class = nn.LeakyReLU(negative_slope=relu_slope)
+            case "tanh":
+                activation_class = nn.Tanh()
+            case "none":
+                activation_class = None
+            case _:
+                raise ValueError(f"Invalid {activation = }")
+
         layers = [
             convolution_class(
                 in_channels=filters_in,
@@ -50,22 +74,14 @@ class ConvolutionBlock(nn.Module):
                 stride=stride,
                 padding=padding,
                 **class_params,
-            ),
-            nn.InstanceNorm2d(filters_out),
+            )
         ]
 
-        match activation:
-            case "relu":
-                activation_class = nn.ReLU
-            case "tanh":
-                activation_class = nn.Tanh
-            case "none":
-                activation_class = None
-            case _:
-                raise ValueError(f"Invalid {activation = }")
+        if norm_class is not None:
+            layers.append(norm_class)
 
         if activation_class is not None:
-            layers.append(activation_class())
+            layers.append(activation_class)
 
         self.block = nn.Sequential(*layers)
 

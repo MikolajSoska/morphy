@@ -47,6 +47,6 @@ class Generator(nn.Module):
         """
         Forward method of CycleGAN generator. Transformers image tensor into other image tensor.
         :param inputs: input image tensor with shape batch x channels x height x width
-        :return:  output image tensor with shape batch x channels x height x width
+        :return: Output image tensor with shape batch x channels x height x width
         """
         return self.network(inputs)
