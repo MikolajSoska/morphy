@@ -7,16 +7,18 @@ import torch.nn as nn
 
 class ConvolutionBlock(nn.Module):
     """
-    ConvolutionBlock layer with structure Conv2d -> InstanceNorm2d -> ReLU
+    ConvolutionBlock layer with structure Convolution -> InstanceNorm -> Activation
     """
 
     def __init__(
         self,
         filters_in: int,
         filters_out: int,
-        kernel_size: tuple[int, int] | int = 3,
-        stride: int = 1,
-        with_activation: bool = True,
+        kernel_size: int | tuple[int, int] = 3,
+        stride: int | tuple[int, int] = 1,
+        padding: int | tuple[int, int] = 0,
+        output_padding: int | tuple[int, int] = 0,
+        activation: typing.Literal["relu", "tanh", "none"] = "relu",
         convolution_type: typing.Literal["base", "transpose"] = "base",
     ) -> None:
         """
@@ -24,24 +26,46 @@ class ConvolutionBlock(nn.Module):
         :param filters_out: Number of convolution output filters
         :param kernel_size: Size of convolution kernel
         :param stride: Convolution stride
-        :param with_activation: Use ReLU activation if True, None activation if False
+        :param padding: Convolutions padding size
+        :param output_padding Convolution output padding (used only when `convolution_type` = "transpose")
+        :param activation: Activation type, used after norm layer
         :param convolution_type: Which type of convolution use (nn.Conv2d or nn.ConvTranspose2d)
         """
         super().__init__()
         match convolution_type:
             case "base":
                 convolution_class = nn.Conv2d
+                class_params = {}
             case "transpose":
                 convolution_class = nn.ConvTranspose2d
+                class_params = {"output_padding": output_padding}
             case _:
                 raise ValueError(f"Invalid {convolution_type = }")
 
         layers = [
-            convolution_class(in_channels=filters_in, out_channels=filters_out, kernel_size=kernel_size, stride=stride),
+            convolution_class(
+                in_channels=filters_in,
+                out_channels=filters_out,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                **class_params,
+            ),
             nn.InstanceNorm2d(filters_out),
         ]
-        if with_activation:
-            layers.append(nn.ReLU())
+
+        match activation:
+            case "relu":
+                activation_class = nn.ReLU
+            case "tanh":
+                activation_class = nn.Tanh
+            case "none":
+                activation_class = None
+            case _:
+                raise ValueError(f"Invalid {activation = }")
+
+        if activation_class is not None:
+            layers.append(activation_class())
 
         self.block = nn.Sequential(*layers)
 
