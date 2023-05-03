@@ -1,6 +1,3 @@
-"""
-Unit tests for layers.py file
-"""
 import typing
 
 import pytest
