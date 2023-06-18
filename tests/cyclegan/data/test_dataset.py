@@ -50,11 +50,12 @@ def test_cyclegan_dataset() -> None:
     with mock_images(number_of_directories=2, number_of_images=3) as images_root:
         dataset = CycleGANDataset(images_root)
         assert len(dataset.classes) == 2
-        assert len(dataset) == 6
+        assert len(dataset.imgs) == 6
+        assert len(dataset) == 3
 
-        image, label = dataset[0]
-        assert isinstance(image, PIL.Image.Image)
-        assert isinstance(label, int)
+        first_image, second_image = dataset[0]
+        assert isinstance(first_image, PIL.Image.Image)
+        assert isinstance(second_image, PIL.Image.Image)
 
 
 def test_cyclegan_dataset_more_categories() -> None:
