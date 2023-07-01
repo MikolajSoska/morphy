@@ -12,10 +12,7 @@ class CycleGANDataset(torchvision.datasets.ImageFolder):
     """
 
     def __init__(
-        self,
-        images_root: str | pathlib.Path,
-        transform: typing.Callable = None,
-        seed: int = None,
+        self, images_root: str | pathlib.Path, transform: typing.Callable = None, seed: int = None, **kwargs: typing.Any
     ) -> None:
         """
         :param images_root: root directory for images. Should contain only two subdirectories
@@ -26,7 +23,7 @@ class CycleGANDataset(torchvision.datasets.ImageFolder):
             len(os.listdir(images_root)) == 2
         ), "Images root should have exactly 2 subdirectories, that will be used as CycleGAN domains"
 
-        super().__init__(images_root, transform)
+        super().__init__(images_root, transform, **kwargs)
         self.first_class = []
         self.second_class = []
         for sample, label in self.samples:
@@ -41,6 +38,8 @@ class CycleGANDataset(torchvision.datasets.ImageFolder):
         self.generator = torch.Generator()
         if seed is not None:
             self.generator.manual_seed(seed)
+        else:
+            self.generator.seed()  # If this method is not called, then all instances will have the same value as seed
 
         self.pairs = None
         self.reset_pairs()
