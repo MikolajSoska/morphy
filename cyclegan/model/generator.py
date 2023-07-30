@@ -5,14 +5,16 @@ from .layers import ConvolutionBlock, ResidualLayer
 
 
 class Generator(nn.Module):
-    """
-    CycleGAN generator that transforms image from one domain to other
-    """
+    """CycleGAN generator that transforms image from one domain to other"""
 
     def __init__(self, in_channels: int = 3, residual_blocks: int = 6) -> None:
         """
-        :param in_channels: Number of channels in the input image
-        :param residual_blocks: number of residual blocks used in the generator
+        Parameters
+        ----------
+        in_channels : int, default: 3
+            Number of channels in the input image
+        residual_blocks : int, default: 6
+            Number of residual blocks used in the generator
         """
         super().__init__()
         self.network = nn.Sequential(
@@ -44,7 +46,15 @@ class Generator(nn.Module):
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """
         Forward method of CycleGAN generator. Transformers image tensor into other image tensor.
-        :param inputs: input image tensor with shape batch x channels x height x width
-        :return: Output image tensor with shape batch x channels x height x width
+
+        Parameters
+        ----------
+        inputs : torch.Tensor
+            Input image tensor with shape batch x channels x height x width
+
+        Returns
+        -------
+        torch.Tensor
+            Output image tensor with shape batch x channels x height x width
         """
         return self.network(inputs)

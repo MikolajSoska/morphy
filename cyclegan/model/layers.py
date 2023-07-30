@@ -6,9 +6,7 @@ import torch.nn as nn
 
 
 class ConvolutionBlock(nn.Module):
-    """
-    ConvolutionBlock layer with structure Convolution -> Norm -> Activation
-    """
+    """ConvolutionBlock layer with structure Convolution -> Norm -> Activation"""
 
     def __init__(
         self,
@@ -24,16 +22,28 @@ class ConvolutionBlock(nn.Module):
         relu_slope: float = 0,
     ) -> None:
         """
-        :param filters_in: Number of convolution input filters
-        :param filters_out: Number of convolution output filters
-        :param kernel_size: Size of convolution kernel
-        :param stride: Convolution stride
-        :param padding: Convolutions padding size
-        :param norm: Which type of norm layer use
-        :param activation: Activation type, used after norm layer
-        :param convolution_type: Which type of convolution use (nn.Conv2d or nn.ConvTranspose2d)
-        :param output_padding Convolution output padding (used only when `convolution_type` = "transpose")
-        :param relu_slope: Used only for ReLU activation. If larger than 0, then LeakyReLU will be used for activation
+        Parameters
+        ----------
+        filters_in : int
+            Number of convolution input filters
+        filters_out : int
+            Number of convolution output filters
+        kernel_size : int | tuple[int, int], default: 3
+            Size of convolution kernel
+        stride : int | tuple[int, int], default: 1
+            Convolution stride
+        padding : int | tuple[int, int], default: 0
+            Convolutions padding size
+        norm : typing.Literal["instance", "none"], default: "instance"
+            Which type of norm layer use
+        activation : typing.Literal["relu", "tanh", "none"], default: "relu"
+            Activation type, used after norm layer
+        convolution_type : typing.Literal["base", "transpose"], default: "base"
+            Which type of convolution use (nn.Conv2d or nn.ConvTranspose2d)
+        output_padding : int | tuple[int, int], default: 0
+            Convolution output padding (used only when `convolution_type` = "transpose")
+        relu_slope : float, default: 0
+            Used only for ReLU activation. If larger than 0, then LeakyReLU will be used for activation
         """
         super().__init__()
         match convolution_type:
@@ -87,27 +97,46 @@ class ConvolutionBlock(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """
-        :param inputs: Input tensor with shape batch x `filters_in` x height x width
-        :return: Processed tensor with shape batch x `filters_out` x height_out x width_out
+        Forward method.
+
+        Parameters
+        ----------
+        inputs : torch.Tensor
+            Input tensor with shape batch x `filters_in` x height x width
+
+        Returns
+        -------
+        torch.Tensor
+            Processed tensor with shape batch x `filters_out` x height_out x width_out
         """
         return self.block(inputs)
 
 
 class ResidualLayer(nn.Module):
-    """
-    Class wraps layer `f` and processes input `x_in` like: `x_out = f(x_in) + x_in`
-    """
+    """Class wraps layer `f` and processes input `x_in` like: `x_out = f(x_in) + x_in`"""
 
     def __init__(self, module: nn.Module) -> None:
         """
-        :param module: Module to be wrapped
+        Parameters
+        ----------
+        module : nn.Module
+            Module to be wrapped
         """
         super().__init__()
         self.module = module
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """
-        :param inputs: Input tensor for residual layer
-        :return: Output tensor after residual layer
+        Forward method.
+
+        Parameters
+        ----------
+        inputs : torch.Tensor
+            Input tensor for residual layer
+
+        Returns
+        -------
+        torch.Tensor
+            Output tensor after residual layer
         """
         return self.module(inputs) + inputs

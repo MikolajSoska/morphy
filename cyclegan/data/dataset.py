@@ -7,17 +7,22 @@ import torchvision
 
 
 class CycleGANDataset(torchvision.datasets.ImageFolder):
-    """
-    Dataset for CycleGAN model.
-    """
+    """Dataset for CycleGAN model."""
 
     def __init__(
         self, images_root: str | pathlib.Path, transform: typing.Callable = None, seed: int = None, **kwargs: typing.Any
     ) -> None:
         """
-        :param images_root: root directory for images. Should contain only two subdirectories
-        :param transform: method for transforming images
-        :param seed: random generator seed used in images pairs making
+        Parameters
+        ----------
+        images_root : str | pathlib.Path
+            Root directory for images. Should contain only two subdirectories
+        transform : typing.Callable, default: None
+            Method for transforming images
+        seed : int, default: None
+            Random generator seed used in images pairs making
+        **kwargs : typing.Any
+            Parameters for torchvision.datasets.ImageFolder constructor
         """
         assert (
             len(os.listdir(images_root)) == 2
@@ -47,21 +52,39 @@ class CycleGANDataset(torchvision.datasets.ImageFolder):
     def reset_pairs(self) -> None:
         """
         Method for resetting datasets pairs to make them different in each epoch
+
+        Returns
+        -------
+        None
         """
         self.pairs = torch.randperm(len(self.first_class), generator=self.generator)
 
     def __len__(self) -> int:
         """
         Returns length of a dataset. Always returns length of the smallest class
-        :return: Length of the smallest class
+
+        Returns
+        -------
+        int
+            Length of the smallest class
         """
         return len(self.first_class)
 
     def __getitem__(self, index: int) -> tuple[typing.Any, typing.Any]:
         """
         Method reads images located and `index` position and its pair. Transforms them if necessary.
-        :param index: sample index
-        :return: the pair of images
+
+        Parameters
+        ----------
+        index : int
+            Sample index
+
+        Returns
+        -------
+        typing.Any
+            First image from pair
+        typing.Any
+            Second image from pair
         """
         first_path = self.first_class[index]
         second_path = self.second_class[self.pairs[index]]

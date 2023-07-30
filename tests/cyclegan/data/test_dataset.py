@@ -21,9 +21,18 @@ def mock_images(number_of_directories: int = 2, number_of_images: int | typing.S
     Images and directories will be automatically removed after usage.
     Images are created in format:
         `root_dir` -> `class_dir_n` -> `image_k.jpg`
-    :param number_of_directories: Number of directories to create
-    :param number_of_images: Number of images in each directory
-    :return: path to root directory
+
+    Parameters
+    ----------
+    number_of_directories : int, default: 2
+        Number of directories to create
+    number_of_images : int | typing.Sequence[int], default: 3
+        Number of images in each directory
+
+    Returns
+    -------
+    str
+        Path to root directory
     """
     if isinstance(number_of_images, int):
         number_of_images = [number_of_images] * number_of_directories
@@ -46,8 +55,15 @@ def load_pil_image(filename: str) -> PIL.Image.Image:
     Default loader in dataset calls .convert() method from PIL on image, which deletes `filename` attribute.
     This attribute is needed for some tests, so using custom loader here
 
-    :param filename: Image filename
-    :return: Opened image
+    Parameters
+    ----------
+    filename : str
+        Image filename
+
+    Returns
+    -------
+    PIL.Image.Image
+        Opened image
     """
     return PIL.Image.open(filename)
 

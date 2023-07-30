@@ -5,11 +5,15 @@ from .layers import ConvolutionBlock
 
 
 class Discriminator(nn.Module):
-    """
-    CycleGAN discriminator that checks if image is original or generated
-    """
+    """CycleGAN discriminator that checks if image is original or generated"""
 
     def __init__(self, in_channels: int = 3) -> None:
+        """
+        Parameters
+        ----------
+        in_channels : int, default: 3
+            Number of input channels in data
+        """
         super().__init__()
         self.network = nn.Sequential(
             ConvolutionBlock(
@@ -24,7 +28,15 @@ class Discriminator(nn.Module):
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """
         Forward method of CycleGAN discriminator.
-        :param inputs: input image tensor with shape batch x channels x height x width
-        :return: Tensor prediction if image is original of generated in the shape batch x 1
+
+        Parameters
+        ----------
+        inputs : torch.Tensor
+            Input image tensor with shape batch x channels x height x width
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor prediction if image is original of generated in the shape batch x 1
         """
         return self.network(inputs)
