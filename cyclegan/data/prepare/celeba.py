@@ -1,5 +1,6 @@
 import os
 import pathlib
+import shutil
 import typing
 
 import numpy as np
@@ -16,7 +17,7 @@ class CelebAPreparer(Preparer):
 
     @classmethod
     def prepare_pairs(
-        cls, images_root: str | pathlib.Path, feature: str, target_root: str | pathlib.Path
+        cls, images_root: str | pathlib.Path, feature: str, target_root: str | pathlib.Path, use_symlinks: bool = False
     ) -> str | pathlib.Path:
         """
         Method constructs image pairs from CelebA dataset by given feature.
@@ -29,6 +30,9 @@ class CelebAPreparer(Preparer):
             Name of the feature from CelebA dataset
         target_root : str | pathlib.Path
             Root directory where prepared pairs will be stored
+        use_symlinks : bool, default: False
+            When true will create symlinks instead of copying files when creating pairs.
+            Symlinks will not use additional memory, but will be slower during read
 
         Returns
         -------
@@ -53,21 +57,23 @@ class CelebAPreparer(Preparer):
             dataset_root=images_root / dataset.base_folder,
             save_dir=target_root / feature / "positive",
             images=positive_pairs,
+            use_symlinks=use_symlinks,
         )
         cls.__create_images_directory(
             dataset_root=images_root / dataset.base_folder,
             save_dir=target_root / feature / "negative",
             images=negative_pairs,
+            use_symlinks=use_symlinks,
         )
 
         return target_root / feature
 
     @classmethod
     def __create_images_directory(
-        cls, dataset_root: pathlib.Path, save_dir: pathlib.Path, images: typing.Iterable
+        cls, dataset_root: pathlib.Path, save_dir: pathlib.Path, images: typing.Iterable, use_symlinks: bool
     ) -> None:
         """
-        Method constructs images directory with symlinks to the original data.
+        Method constructs images directory.
 
         Parameters
         ----------
@@ -77,6 +83,8 @@ class CelebAPreparer(Preparer):
             Directory when the images will be saves
         images : typing.Iterable
             Sequence of images names
+        use_symlinks : bool
+            Whether to use symlinks or copy files
 
         Returns
         -------
@@ -84,5 +92,7 @@ class CelebAPreparer(Preparer):
         """
         save_dir.mkdir(parents=True, exist_ok=True)
         images_dir = (dataset_root / cls.IMAGES_DIRECTORY).resolve()  # Symlinks need absolute path
+        save_method = os.symlink if use_symlinks else shutil.copy
+
         for image in tqdm.tqdm(images, desc=f"Preparing images in {save_dir}"):
-            os.symlink(images_dir / image, save_dir / image)
+            save_method(images_dir / image, save_dir / image)
