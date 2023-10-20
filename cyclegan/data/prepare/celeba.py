@@ -75,7 +75,32 @@ class CelebAPreparer(Preparer):
             override=override_files,
         )
 
-        return target_root / feature
+        return cls.get_target_dir(target_root, feature)
+
+    @classmethod
+    def get_target_dir(cls, root_dir: str | pathlib.Path, feature: str = None) -> pathlib.Path:
+        """
+        Method creates path to the save directory for CelebA images, based on thr feature name.
+        Path is constructed as: root_dir / feature
+
+        Parameters
+        ----------
+        root_dir : str | pathlib.Path
+            Dataset root directory
+        feature : str
+            CelebA feature name
+
+        Returns
+        -------
+        pathlib.Path
+            Constructed path
+        """
+        assert feature is not None, "'feature' parameter must be passed to this method."
+
+        if isinstance(root_dir, str):
+            root_dir = pathlib.Path(root_dir)
+
+        return root_dir / feature
 
     @classmethod
     def __create_images_directory(

@@ -26,3 +26,24 @@ class Preparer(abc.ABC):
             Path where the images are stored
         """
         pass
+
+    @classmethod
+    @abc.abstractmethod
+    def get_target_dir(cls, root_dir: str | pathlib.Path, **kwargs: typing.Any) -> pathlib.Path:
+        """
+        Method constructs path to the directory with the dataset,
+        based on the passed root directory and other optional features.
+
+        Parameters
+        ----------
+        root_dir : str | pathlib.Path
+            Root directory for the dataset images.
+        **kwargs : typing.Any
+            Method keyword args
+
+        Returns
+        -------
+        pathlib.Path
+            Constructed path
+        """
+        pass
