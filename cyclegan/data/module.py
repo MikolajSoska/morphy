@@ -2,9 +2,11 @@ import pathlib
 import typing
 
 import pytorch_lightning as pl
+import torch
 import torch.utils.data
 
 from .dataset import CycleGANDataset
+from .loader import CycleGANDataLoader
 from .prepare.celeba import CelebAPreparer
 
 
@@ -107,46 +109,46 @@ class CycleGANDataModule(pl.LightningDataModule):
         self.dataset_test = self.dataset_val
         self.dataset_predict = self.dataset_val
 
-    def train_dataloader(self) -> torch.utils.data.DataLoader:
+    def train_dataloader(self) -> CycleGANDataLoader:
         """
         Method initializes training dataloader.
 
         Returns
         -------
-        torch.utils.data.DataLoader
+        CycleGANDataLoader
             Initialized dataloader
         """
-        return torch.utils.data.DataLoader(self.dataset_train, batch_size=self.batch_size, shuffle=True)
+        return CycleGANDataLoader(self.dataset_train, batch_size=self.batch_size, shuffle=True, training=True)
 
-    def val_dataloader(self) -> torch.utils.data.DataLoader:
+    def val_dataloader(self) -> CycleGANDataLoader:
         """
         Method initializes validation dataloader.
 
         Returns
         -------
-        torch.utils.data.DataLoader
+        CycleGANDataLoader
             Initialized dataloader
         """
-        return torch.utils.data.DataLoader(self.dataset_val, batch_size=self.batch_size, shuffle=False)
+        return CycleGANDataLoader(self.dataset_val, batch_size=self.batch_size, shuffle=False)
 
-    def test_dataloader(self) -> torch.utils.data.DataLoader:
+    def test_dataloader(self) -> CycleGANDataLoader:
         """
         Method initializes testing dataloader.
 
         Returns
         -------
-        torch.utils.data.DataLoader
+        CycleGANDataLoader
             Initialized dataloader
         """
-        return torch.utils.data.DataLoader(self.dataset_test, batch_size=self.batch_size, shuffle=False)
+        return CycleGANDataLoader(self.dataset_test, batch_size=self.batch_size, shuffle=False)
 
-    def predict_dataloader(self) -> torch.utils.data.DataLoader:
+    def predict_dataloader(self) -> CycleGANDataLoader:
         """
         Method initializes predict dataloader.
 
         Returns
         -------
-        torch.utils.data.DataLoader
+        CycleGANDataLoader
             Initialized dataloader
         """
-        return torch.utils.data.DataLoader(self.dataset_predict, batch_size=self.batch_size, shuffle=False)
+        return CycleGANDataLoader(self.dataset_predict, batch_size=self.batch_size, shuffle=False)

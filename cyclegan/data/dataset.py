@@ -49,15 +49,45 @@ class CycleGANDataset(torchvision.datasets.ImageFolder):
         self.pairs = None
         self.reset_pairs()
 
-    def reset_pairs(self) -> None:
+    def reset_pairs(self, training_indexes: typing.Sequence[int] = None) -> None:
         """
-        Method for resetting datasets pairs to make them different in each epoch
+        Method for resetting datasets pairs to make them different in each training epoch
+
+        Parameters
+        ----------
+        training_indexes : list[int], default: None
+            When this value is passed, only indexes in this list will have assigned a new pair
 
         Returns
         -------
         None
         """
-        self.pairs = torch.randperm(len(self.first_class), generator=self.generator)
+        if training_indexes is not None:
+            assert self.pairs is not None, "`reset_pairs` with training indexes can be call only after first full reset"
+            assert len(training_indexes) <= len(self), "Number of training indexes is larger than size of the dataset."
+            assert min(training_indexes) >= 0 and max(training_indexes) < len(self), "Invalid training_indexes"
+            blocked_pairs = [pair for index, pair in enumerate(self.pairs) if index not in training_indexes]
+        else:
+            training_indexes = range(len(self.first_class))  # Will reset pairs for the whole dataset
+            blocked_pairs = None
+
+        candidates = torch.ones(len(self.second_class))  # Initialize probability for all samples as 1
+        if blocked_pairs is not None:
+            candidates[blocked_pairs] = 0  # Assign 0 for pairs that are not used in training indexes
+
+        pairs = torch.multinomial(
+            candidates, num_samples=len(training_indexes), replacement=False, generator=self.generator
+        ).tolist()
+
+        if self.pairs is None:  # First call (initialization)
+            self.pairs = pairs
+            return None
+
+        # Update pairs
+        for index, pair in zip(training_indexes, pairs):
+            self.pairs[index] = pair
+
+        return None
 
     def __len__(self) -> int:
         """

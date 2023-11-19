@@ -174,6 +174,8 @@ def test_cyclegan_dataset_seed(seed: int) -> None:
         check_images_similarity()
         first_dataset.reset_pairs()
         second_dataset.reset_pairs()
+        assert len(first_dataset.pairs) == len(set(first_dataset.pairs))
+        assert len(second_dataset.pairs) == len(set(second_dataset.pairs))
         check_images_similarity()
 
 
@@ -189,7 +191,7 @@ def test_cyclegan_dataset_different_seeds(seed: int) -> None:
 
 
 def test_cyclegan_dataset_reset_pairs() -> None:
-    with mock_images(number_of_directories=2, number_of_images=3) as images_root:
+    with mock_images(number_of_directories=2, number_of_images=10) as images_root:
         dataset = CycleGANDataset(images_root, loader=load_pil_image)
 
         samples = [image.filename for sample in dataset for image in sample]
@@ -197,8 +199,48 @@ def test_cyclegan_dataset_reset_pairs() -> None:
         assert samples == same_samples
 
         dataset.reset_pairs()
+        assert len(dataset.pairs) == len(set(dataset.pairs))
         different_samples = [image.filename for sample in dataset for image in sample]
         assert samples != different_samples
+
+
+def test_cyclegan_dataset_reset_pairs_unequal_domains() -> None:
+    with mock_images(number_of_directories=2, number_of_images=[3, 30]) as images_root:
+        dataset = CycleGANDataset(images_root, loader=load_pil_image)
+
+        # When two domains/classes are unequal, after pairs reset there should be at least few new images
+        # from the larger domain
+        samples = {image.filename for sample in dataset for image in sample}
+        dataset.reset_pairs()
+        assert len(dataset.pairs) == len(set(dataset.pairs))
+        different_samples = {image.filename for sample in dataset for image in sample}
+
+        assert samples != different_samples
+
+
+@pytest.mark.parametrize("number_of_images", [10, 20, 30, (10, 30), (20, 5), (15, 40)])
+def test_cyclegan_dataset_reset_pairs_with_indexes(
+    number_of_images: int | tuple[int, int], indexes_ratio: float = 0.7
+) -> None:
+    with mock_images(number_of_directories=2, number_of_images=number_of_images) as images_root:
+        dataset = CycleGANDataset(images_root, loader=load_pil_image)
+
+        number_of_indexes = round(indexes_ratio * len(dataset))
+        indexes = np.random.choice(len(dataset), number_of_indexes, replace=False)
+        all_indexes = list(range(len(dataset)))
+
+        samples_from_indexes = [image.filename for index in indexes for image in dataset[index]]
+        constant_samples = [image.filename for index in all_indexes for image in dataset[index] if index not in indexes]
+
+        dataset.reset_pairs(indexes)
+        assert len(dataset.pairs) == len(set(dataset.pairs))
+        samples_from_indexes_after_reset = [image.filename for index in indexes for image in dataset[index]]
+        constant_samples_after_reset = [
+            image.filename for index in all_indexes for image in dataset[index] if index not in indexes
+        ]
+
+        assert samples_from_indexes != samples_from_indexes_after_reset
+        assert constant_samples == constant_samples_after_reset
 
 
 @pytest.mark.parametrize("number_of_images", [3, [2, 3], [3, 2], [8, 8], [3, 7]])
