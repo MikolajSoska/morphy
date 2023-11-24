@@ -181,6 +181,21 @@ class CycleGAN(pl.LightningModule):
         _, generated_a, generated_b = self.__run_generators(image_a, image_b)
         self.__run_discriminator(image_a, image_b, generated_a, generated_b)
 
+    def forward(
+        self, image_a: torch.Tensor = None, image_b: torch.Tensor = None
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        assert image_a is not None or image_b is not None, "At least one image must be provided."
+
+        result = []
+
+        if image_a is not None:
+            result.append(self.generator_a(image_a))  # A (real) -> B (fake)
+
+        if image_b is not None:
+            result.append(self.generator_b(image_b))  # B (real) -> A (fake)
+
+        return tuple(result) if len(result) > 1 else result[0]
+
     def configure_optimizers(self) -> list[torch.optim.Optimizer]:
         """
         Method creates optimizers both generators and discriminators.
