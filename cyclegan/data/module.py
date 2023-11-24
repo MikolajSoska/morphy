@@ -105,10 +105,6 @@ class CycleGANDataModule(pl.LightningDataModule):
             generator=generator,
         )
 
-        # There is no separate datasets for test and predict phase, so validation split is used again here
-        self.dataset_test = self.dataset_val
-        self.dataset_predict = self.dataset_val
-
     def train_dataloader(self) -> CycleGANDataLoader:
         """
         Method initializes training dataloader.
@@ -130,25 +126,3 @@ class CycleGANDataModule(pl.LightningDataModule):
             Initialized dataloader
         """
         return CycleGANDataLoader(self.dataset_val, batch_size=self.batch_size, shuffle=False)
-
-    def test_dataloader(self) -> CycleGANDataLoader:
-        """
-        Method initializes testing dataloader.
-
-        Returns
-        -------
-        CycleGANDataLoader
-            Initialized dataloader
-        """
-        return CycleGANDataLoader(self.dataset_test, batch_size=self.batch_size, shuffle=False)
-
-    def predict_dataloader(self) -> CycleGANDataLoader:
-        """
-        Method initializes predict dataloader.
-
-        Returns
-        -------
-        CycleGANDataLoader
-            Initialized dataloader
-        """
-        return CycleGANDataLoader(self.dataset_predict, batch_size=self.batch_size, shuffle=False)
