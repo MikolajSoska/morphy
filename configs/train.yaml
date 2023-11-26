@@ -1,0 +1,14 @@
+dataset:
+  type: celeba
+  root_dir: data
+  feature: Smiling
+  test_size: 0.3
+  image_size: 128
+
+model:
+  residual_blocks: 6
+
+training:
+  seed: 0
+  max_epochs: 3
+  learning_rate: 2e-4
