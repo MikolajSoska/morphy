@@ -1,8 +1,11 @@
+import pathlib
+
 # noinspection PyPackageRequirements
 # This package is installed as hydra-core, PyCharm doesn't recognize this
 import hydra
 import omegaconf
 import pytorch_lightning as pl
+import pytorch_lightning.loggers
 import torchvision
 
 from cyclegan import CycleGAN
@@ -23,6 +26,11 @@ def train(config: omegaconf.DictConfig) -> None:
     -------
     None
     """
+    logger = pl.loggers.CSVLogger(save_dir=config.training.logs_dir, name=config.training.experiment_name)
+    logs_dir = pathlib.Path(logger.log_dir)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    omegaconf.OmegaConf.save(config, logs_dir / "config.yaml")
+
     datamodule = CycleGANDataModule(
         dataset_type=config.dataset.type,
         dataset_root=config.dataset.root_dir,
@@ -41,7 +49,10 @@ def train(config: omegaconf.DictConfig) -> None:
         residual_blocks=config.model.residual_blocks,
         learning_rate=config.training.learning_rate,
     )
-    trainer = pl.Trainer(max_epochs=config.training.max_epochs)
+    trainer = pl.Trainer(
+        max_epochs=config.training.max_epochs,
+        logger=logger,
+    )
     trainer.fit(model, datamodule)
 
 

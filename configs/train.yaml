@@ -12,3 +12,14 @@ training:
   seed: 0
   max_epochs: 3
   learning_rate: 2e-4
+  logs_dir: logs
+  experiment_name: experiment
+
+# Disable Hydra logging
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+defaults:
+  - override hydra/job_logging: disabled
+  - override hydra/hydra_logging: none
