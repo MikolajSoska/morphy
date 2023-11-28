@@ -25,7 +25,7 @@ class CycleGAN(pl.LightningModule):
         residual_blocks: int = 6,
         learning_rate: float = 2e-4,
         *args: typing.Any,
-        **kwargs: typing.Any
+        **kwargs: typing.Any,
     ) -> None:
         """
         Parameters
@@ -51,7 +51,7 @@ class CycleGAN(pl.LightningModule):
         self.discriminator_b = Discriminator(in_channels)  # Is B real
 
     def __run_generators(
-        self, image_a: torch.Tensor, image_b: torch.Tensor
+        self, image_a: torch.Tensor, image_b: torch.Tensor, phase: str = "train"
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Method for running single generation step in training or validation.
@@ -84,10 +84,19 @@ class CycleGAN(pl.LightningModule):
 
         generator_loss = cycle_loss + identity_loss
 
+        self.log(f"{phase}_cycle_loss", cycle_loss)
+        self.log(f"{phase}_identity_loss", identity_loss)
+        self.log(f"{phase}_generator_loss", generator_loss, prog_bar=True)
+
         return generator_loss, generated_a, generated_b
 
     def __run_discriminator(
-        self, real_a: torch.Tensor, real_b: torch.Tensor, fake_a: torch.Tensor, fake_b: torch.Tensor
+        self,
+        real_a: torch.Tensor,
+        real_b: torch.Tensor,
+        fake_a: torch.Tensor,
+        fake_b: torch.Tensor,
+        phase: str = "train",
     ) -> torch.Tensor:
         """
         Method for running single discriminator step in training or validation.
@@ -116,12 +125,25 @@ class CycleGAN(pl.LightningModule):
         target_fake = torch.zeros_like(prediction_fake_a)
         target_real = torch.ones_like(prediction_real_a)
 
+        discriminator_a_real_loss = nn.functional.mse_loss(prediction_real_a, target_real)  # Real image A
+        discriminator_a_fake_loss = nn.functional.mse_loss(prediction_fake_a, target_fake)  # Fake image A
+        discriminator_b_real_loss = nn.functional.mse_loss(prediction_real_b, target_real)  # Real image B
+        discriminator_b_fake_loss = nn.functional.mse_loss(prediction_fake_b, target_fake)  # Fake image B
+
         discriminator_loss = 0.5 * (
-            nn.functional.mse_loss(prediction_fake_a, target_fake)  # Fake image A
-            + nn.functional.mse_loss(prediction_real_a, target_real)  # Real image A
-            + nn.functional.mse_loss(prediction_fake_b, target_fake)  # Fake image B
-            + nn.functional.mse_loss(prediction_real_b, target_real)  # Real image B
+            discriminator_a_real_loss
+            + discriminator_a_fake_loss
+            + discriminator_b_real_loss
+            + discriminator_b_fake_loss
         )
+
+        self.log(f"{phase}_discriminator_a_real_loss", discriminator_a_real_loss)
+        self.log(f"{phase}_discriminator_a_fake_loss", discriminator_a_fake_loss)
+        self.log(f"{phase}_discriminator_b_real_loss", discriminator_b_real_loss)
+        self.log(f"{phase}_discriminator_b_fake_loss", discriminator_b_fake_loss)
+        self.log(f"{phase}_discriminator_a_loss", discriminator_a_real_loss + discriminator_a_fake_loss)
+        self.log(f"{phase}_discriminator_b_loss", discriminator_b_real_loss + discriminator_b_fake_loss)
+        self.log(f"{phase}_discriminator_loss", discriminator_loss, prog_bar=True)
 
         return discriminator_loss
 
@@ -146,7 +168,7 @@ class CycleGAN(pl.LightningModule):
 
         # Generators training
         self.toggle_optimizer(optimizer_generator)
-        generator_loss, generated_a, generated_b = self.__run_generators(image_a, image_b)
+        generator_loss, generated_a, generated_b = self.__run_generators(image_a, image_b, phase="train")
         self.manual_backward(generator_loss)
 
         optimizer_generator.step()
@@ -155,7 +177,9 @@ class CycleGAN(pl.LightningModule):
 
         # Discriminators training
         self.toggle_optimizer(optimizer_discriminator)
-        discriminator_loss = self.__run_discriminator(image_a, image_b, generated_a.detach(), generated_b.detach())
+        discriminator_loss = self.__run_discriminator(
+            image_a, image_b, generated_a.detach(), generated_b.detach(), phase="train"
+        )
         self.manual_backward(discriminator_loss)
 
         optimizer_discriminator.step()
@@ -178,8 +202,8 @@ class CycleGAN(pl.LightningModule):
         None
         """
         image_a, image_b = batch
-        _, generated_a, generated_b = self.__run_generators(image_a, image_b)
-        self.__run_discriminator(image_a, image_b, generated_a, generated_b)
+        _, generated_a, generated_b = self.__run_generators(image_a, image_b, phase="val")
+        self.__run_discriminator(image_a, image_b, generated_a, generated_b, phase="val")
 
     def forward(
         self, image_a: torch.Tensor = None, image_b: torch.Tensor = None
