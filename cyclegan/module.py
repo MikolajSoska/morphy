@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 import torch
 import torch.functional
 import torch.nn as nn
+import torchmetrics
 
 from .model.discriminator import Discriminator
 from .model.generator import Generator
@@ -50,6 +51,8 @@ class CycleGAN(pl.LightningModule):
         self.discriminator_a = Discriminator(in_channels)  # Is A real
         self.discriminator_b = Discriminator(in_channels)  # Is B real
 
+        self.fid = torchmetrics.image.FrechetInceptionDistance(feature=64, normalize=True)
+
     def __run_generators(
         self, image_a: torch.Tensor, image_b: torch.Tensor, phase: str = "train"
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -84,10 +87,15 @@ class CycleGAN(pl.LightningModule):
 
         generator_loss = cycle_loss + identity_loss
 
+        self.fid.update(torch.cat((image_a, image_b), dim=0), real=True)
+        self.fid.update(torch.cat((generated_a, generated_a), dim=0), real=False)
+
         self.log(f"{phase}_cycle_loss", cycle_loss)
         self.log(f"{phase}_identity_loss", identity_loss)
         self.log(f"{phase}_generator_loss", generator_loss, prog_bar=True)
+        self.log(f"{phase}_FID", self.fid.compute())
 
+        self.fid.reset()
         return generator_loss, generated_a, generated_b
 
     def __run_discriminator(
