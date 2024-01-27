@@ -1,4 +1,7 @@
+import os
 import pathlib
+
+import dotenv
 
 # noinspection PyPackageRequirements
 # This package is installed as hydra-core, PyCharm doesn't recognize this
@@ -7,6 +10,7 @@ import omegaconf
 import pytorch_lightning as pl
 import pytorch_lightning.loggers
 import torchvision
+import wandb
 
 from cyclegan import CycleGAN
 from cyclegan.data.module import CycleGANDataModule
@@ -26,8 +30,18 @@ def train(config: omegaconf.DictConfig) -> None:
     -------
     None
     """
-    logger = pl.loggers.CSVLogger(save_dir=config.training.logs_dir, name=config.training.experiment_name)
-    logs_dir = pathlib.Path(logger.log_dir)
+    dotenv.load_dotenv(dotenv.find_dotenv())
+    wandb.login(key=os.environ["WANDB_API_KEY"])
+
+    csv_logger = pl.loggers.CSVLogger(save_dir=config.training.logs_dir, name=config.training.experiment_name)
+    logs_dir = pathlib.Path(csv_logger.log_dir)
+
+    wandb_logger = pl.loggers.WandbLogger(
+        project="morphy",
+        save_dir=config.training.logs_dir,
+        name=f"{config.training.experiment_name}/{logs_dir.stem}",  # Logs dir stem is a version identifier
+    )
+
     logs_dir.mkdir(parents=True, exist_ok=True)
     omegaconf.OmegaConf.save(config, logs_dir / "config.yaml")
 
@@ -51,7 +65,7 @@ def train(config: omegaconf.DictConfig) -> None:
     )
     trainer = pl.Trainer(
         max_epochs=config.training.max_epochs,
-        logger=logger,
+        logger=[csv_logger, wandb_logger],
     )
     trainer.fit(model, datamodule)
 
