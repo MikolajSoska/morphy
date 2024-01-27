@@ -45,7 +45,7 @@ class CycleGAN(pl.LightningModule):
         super().__init__(*args, **kwargs)
         self.automatic_optimization = False
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(logger=False)  # HParams are saved as config file separately
         self.generator_a = Generator(in_channels, residual_blocks)  # A -> B
         self.generator_b = Generator(in_channels, residual_blocks)  # B -> A
         self.discriminator_a = Discriminator(in_channels)  # Is A real

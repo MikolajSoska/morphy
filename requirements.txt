@@ -11,3 +11,4 @@ torchmetrics==1.0.1
 torch-fidelity==0.3.0
 wandb==0.16.2
 python-dotenv==1.0.1
+pandas==2.0.3
