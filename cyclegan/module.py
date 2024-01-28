@@ -2,6 +2,7 @@ import itertools
 import typing
 
 import pytorch_lightning as pl
+import pytorch_lightning.loggers
 import torch
 import torch.functional
 import torch.nn as nn
@@ -17,6 +18,9 @@ class CycleGAN(pl.LightningModule):
     Module simultaneously trains two generators that are capable of transforming image from domain A into the domain B
     and vice-versa, together with discriminators for both domains.
     """
+
+    TRAIN_PHASE_NAME = "train"
+    VAL_PHASE_NAME = "val"
 
     # noinspection PyUnusedLocal
     # PytorchLightning saves hyperparameters from __init__ args, so this variable is used but not explicitly
@@ -54,8 +58,8 @@ class CycleGAN(pl.LightningModule):
         self.fid = torchmetrics.image.FrechetInceptionDistance(feature=64, normalize=True)
 
     def __run_generators(
-        self, image_a: torch.Tensor, image_b: torch.Tensor, phase: str = "train"
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, image_a: torch.Tensor, image_b: torch.Tensor, phase: str = TRAIN_PHASE_NAME
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """
         Method for running single generation step in training or validation.
 
@@ -70,10 +74,14 @@ class CycleGAN(pl.LightningModule):
         -------
         torch.Tensor
             Generator loss
-        torch.Tensor
-            Transformed image B (B -> A)
-        torch.Tensor
-            Transformed image A (A -> B)
+        dict[str, torch.Tensor]
+            Dictionary with generated images:
+                - 'generated_a' - Transformed image B (B -> A)
+                - 'generated_b' - Transformed image A (A -> B)
+                - 'cycle_a' - Cycle image A (A -> B -> A)
+                - 'cycle_b' - Cycle image B (B -> A -> B)
+                - 'identity_a' - Identity image A (A -> A)
+                - 'identity_b' - Identity image B (B -> B)
         """
         generated_a = self.generator_b(image_b)  # B (real) -> A (fake)
         generated_b = self.generator_a(image_a)  # A (real) -> B (fake)
@@ -96,7 +104,17 @@ class CycleGAN(pl.LightningModule):
         self.log(f"{phase}_FID", self.fid.compute())
 
         self.fid.reset()
-        return generator_loss, generated_a, generated_b
+
+        output = {
+            "generated_a": generated_a,
+            "generated_b": generated_b,
+            "cycle_a": cycle_a,
+            "cycle_b": cycle_b,
+            "identity_a": identity_a,
+            "identity_b": identity_b,
+        }
+
+        return generator_loss, output
 
     def __run_discriminator(
         self,
@@ -104,7 +122,7 @@ class CycleGAN(pl.LightningModule):
         real_b: torch.Tensor,
         fake_a: torch.Tensor,
         fake_b: torch.Tensor,
-        phase: str = "train",
+        phase: str = TRAIN_PHASE_NAME,
     ) -> torch.Tensor:
         """
         Method for running single discriminator step in training or validation.
@@ -155,6 +173,76 @@ class CycleGAN(pl.LightningModule):
 
         return discriminator_loss
 
+    def __log_images(
+        self,
+        image_a: torch.Tensor,
+        image_b: torch.Tensor,
+        output_images: dict[str, torch.Tensor],
+        step: int,
+        phase: str,
+    ) -> None:
+        """
+        Method logs images with the available loggers.
+
+        Parameters
+        ----------
+        image_a : torch.Tensor
+            Original image A
+        image_b : torch.Tensor
+            Original image B
+        output_images : dict[str, torch.Tensor]
+            Dictionary with generated images
+
+        Returns
+        -------
+        None
+        """
+
+        def __log_images_single(
+            _logger: pl.loggers.WandbLogger, real_image: torch.Tensor, from_image: str, to_image: str
+        ) -> None:
+            """
+            Helper method for logging single image version (A or B), with proper descriptions.
+
+            Parameters
+            ----------
+            _logger : pl.loggers.WandbLogger
+                Logger instance
+            real_image : torch.Tensor
+                Real image
+            from_image : str
+                ID of starting image
+            to_image : str
+                ID of target image
+
+            Returns
+            -------
+            None
+            """
+            from_image = from_image.upper()
+            to_image = to_image.upper()
+            _logger.log_image(
+                images=[
+                    real_image,
+                    output_images[f"generated_{to_image.lower()}"],
+                    output_images[f"cycle_{from_image.lower()}"],
+                    output_images[f"identity_{from_image.lower()}"],
+                ],
+                key=f"Image {from_image} transformations ({phase})",
+                step=step,
+                caption=[
+                    f"Image {from_image}",
+                    f"Generated {to_image} ({from_image} -> {to_image})",
+                    f"Cycle {from_image} ({from_image} -> {to_image} -> {from_image})",
+                    f"Identity {from_image} ({from_image} -> {from_image})",
+                ],
+            )
+
+        for logger in self.loggers:
+            if isinstance(logger, pl.loggers.WandbLogger):
+                __log_images_single(logger, image_a, from_image="A", to_image="B")
+                __log_images_single(logger, image_b, from_image="B", to_image="A")
+
     def training_step(self, batch: list[torch.Tensor], batch_index: int) -> None:
         """
         Method defines single training step of CycleGAN.
@@ -176,17 +264,26 @@ class CycleGAN(pl.LightningModule):
 
         # Generators training
         self.toggle_optimizer(optimizer_generator)
-        generator_loss, generated_a, generated_b = self.__run_generators(image_a, image_b, phase="train")
+        generator_loss, output_images = self.__run_generators(image_a, image_b, phase=self.TRAIN_PHASE_NAME)
         self.manual_backward(generator_loss)
 
         optimizer_generator.step()
         optimizer_generator.zero_grad()
         self.untoggle_optimizer(optimizer_generator)
 
+        # noinspection PyUnresolvedReferences
+        # PyChams says that trainer don't have a log_every_n_steps attribute
+        if (batch_index + 1) % self.trainer.log_every_n_steps == 0:
+            self.__log_images(image_a, image_b, output_images, step=batch_index, phase=self.TRAIN_PHASE_NAME)
+
         # Discriminators training
         self.toggle_optimizer(optimizer_discriminator)
         discriminator_loss = self.__run_discriminator(
-            image_a, image_b, generated_a.detach(), generated_b.detach(), phase="train"
+            image_a,
+            image_b,
+            output_images["generated_a"].detach(),
+            output_images["generated_b"].detach(),
+            phase=self.TRAIN_PHASE_NAME,
         )
         self.manual_backward(discriminator_loss)
 
@@ -210,8 +307,15 @@ class CycleGAN(pl.LightningModule):
         None
         """
         image_a, image_b = batch
-        _, generated_a, generated_b = self.__run_generators(image_a, image_b, phase="val")
-        self.__run_discriminator(image_a, image_b, generated_a, generated_b, phase="val")
+        _, output_images = self.__run_generators(image_a, image_b, phase=self.VAL_PHASE_NAME)
+        # noinspection PyUnresolvedReferences
+        # PyChams says that trainer don't have a log_every_n_steps attribute
+        if (batch_index + 1) % self.trainer.log_every_n_steps == 0:
+            self.__log_images(image_a, image_b, output_images, step=batch_index, phase=self.VAL_PHASE_NAME)
+
+        self.__run_discriminator(
+            image_a, image_b, output_images["generated_a"], output_images["generated_b"], phase=self.VAL_PHASE_NAME
+        )
 
     def forward(
         self, image_a: torch.Tensor = None, image_b: torch.Tensor = None

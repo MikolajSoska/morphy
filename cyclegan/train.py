@@ -34,12 +34,10 @@ def train(config: omegaconf.DictConfig) -> None:
     wandb.login(key=os.environ["WANDB_API_KEY"])
 
     csv_logger = pl.loggers.CSVLogger(save_dir=config.training.logs_dir, name=config.training.experiment_name)
-    experiment_version = pathlib.Path(csv_logger.log_dir).stem
-
     wandb_logger = pl.loggers.WandbLogger(
         project="morphy",
         save_dir=config.training.logs_dir,
-        name=f"{config.training.experiment_name}/{experiment_version}",
+        name=f"{config.training.experiment_name}/version_{csv_logger.version}",
     )
     csv_logger.log_hyperparams(config)
     wandb_logger.log_hyperparams(utils.flatten_dict(omegaconf.OmegaConf.to_object(config)))
